@@ -10,3 +10,4 @@ Our objective is indeed the detection of the puzzle on the image (Video) as well
 
 # Usage
 ``` python src\modelsCNN\train_digit_classifier.py -m src\modelsCNN\model.h5 ```  
+``` python src\solve_sudoku_puzzle.py -i Data\image_1.png ```  

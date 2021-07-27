@@ -21,6 +21,6 @@ image = imutils.resize(image, width=600)
 mySudoku = sudoku(image)
 # Find the puzzle in the image and then
 mySudoku.find_puzzle()
-cv2.imshow("MySudokuPuzzle", mySudoku.puzzleRGB)
+cv2.imshow("MySudokuPuzzle", mySudoku.warpedPuzzleRGB)
 cv2.waitKey()
 
