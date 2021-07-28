@@ -9,5 +9,5 @@ Our objective is indeed the detection of the puzzle on the image (Video) as well
 - train_digit_classifier.py : File containing all the steps carried out to train our CNN SudokuNet model with the MNIST dataset.
 
 # Usage
-``` python src\modelsCNN\train_digit_classifier.py -m src\modelsCNN\model.h5 ```  
-``` python src\solve_sudoku_puzzle.py -i Data\image_1.png ```  
+``` python src\modelsCNN\train_digit_classifier.py -m modelOutputPath.h5 ```  
+``` python src\solve_sudoku_puzzle.py -i imagePth.png -m modelPath.h5```  
