@@ -26,5 +26,5 @@ cv2.waitKey()
 
 # Find the puzzle in the image and then
 mySudoku.create_SudokuMatrix(args["model"])
-mySudoku.show_Sudoku()
+mySudoku.solveAndShow_Sudoku()
 

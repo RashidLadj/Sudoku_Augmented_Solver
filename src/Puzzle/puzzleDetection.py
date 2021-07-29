@@ -168,8 +168,13 @@ class sudoku:
                 # add the row to our cell locations
             self.cellLocs.append(row)
 
-    def show_Sudoku(self):
-        # cCnstruct a Sudoku puzzle from the board
+    def solveAndShow_Sudoku(self):
+        # construct a Sudoku puzzle from the board
         print("[INFO] construct Sudoku board:")
         puzzle = Sudoku(3, 3, board=self.board.tolist())
         puzzle.show()
+
+        # Solve a Sudoku puzzle using Sudoku library
+        print("[INFO] solving Sudoku puzzle...")
+        self.boardSolution = puzzle.solve()
+        self.boardSolution.show_full()
