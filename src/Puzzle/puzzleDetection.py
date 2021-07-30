@@ -1,11 +1,10 @@
-# import the necessary packages
-import cv2
-from imutils import contours
+# Import the necessary packages
 import numpy as np
-import random as rng
+import cv2
 
 import imutils
 from imutils.perspective import four_point_transform
+from imutils.perspective import order_points
 from skimage.segmentation import clear_border
 
 from keras.models import load_model
@@ -15,10 +14,16 @@ from sudoku import Sudoku
 
 class sudoku:
 
-    def __init__(self, image):
-        self.originalImage = image
-        self.originalGray = None
-
+    def __init__(self, imagePath):
+        self.originalImage = cv2.imread(imagePath)
+        self.originalImage =imutils.resize(self.originalImage, width=600)
+        self.originalGray  = None
+        self.puzzleCnt        = None # Initialize a contour that corresponds to the puzzle outline
+        self.warpedPuzzleRGB  = None
+        self.warpedPuzzleGray = None
+        self.board = np.zeros((9, 9), dtype="int") # Initialize our 9x9 Sudoku board
+        self.cellLocs         = None
+        self.boardSolution    = None
 
     def find_puzzle(self, debug=False):
 
@@ -68,8 +73,8 @@ class sudoku:
         self.warpedPuzzleGray = four_point_transform(self.originalGray , self.puzzleCnt.reshape(4, 2))
 
         if debug:
-            # show the output warped image (again, for debugging purposes)
-            cv2.imshow("Puzzle Transform", self.puzzleRGB)
+            # Show the output warped image (again, for debugging purposes)
+            cv2.imshow("Puzzle Transform", self.warpedPuzzleRGB)
             cv2.waitKey(0)
 
     def __extract_digit(self, cell, debug=False):
@@ -108,6 +113,7 @@ class sudoku:
         if debug:
             cv2.imshow("Digit", digit)
             cv2.waitKey(0)
+
         # return the digit to the calling function
         return digit       
 
@@ -129,6 +135,7 @@ class sudoku:
         stepY = self.warpedPuzzleGray.shape[0] // 9
         # Initialize a list to store the (x, y)-coordinates of each cell location
         self.cellLocs = []
+
         # Loop over the grid locations
         for y in range(0, 9):
             # Initialize the current list of cell locations
@@ -148,9 +155,6 @@ class sudoku:
                
                 # Verify that the digit is not empty
                 if digit is not None:
-                    # cv2.imshow("test", digit)
-                    # cv2.waitKey()
-
                     # Resize the cell to 28x28 pixels and then prepare the cell for classification
                     roi = cv2.resize(digit, (28, 28))
                     roi = roi.astype("float") / 255.0
@@ -165,7 +169,8 @@ class sudoku:
                     pred = pred.argmax(axis=1)
                     pred = pred[0]
                     self.board[y, x] = pred
-                # add the row to our cell locations
+
+                # Add the row to our cell locations
             self.cellLocs.append(row)
 
     def solveAndShow_Sudoku(self):
@@ -178,3 +183,69 @@ class sudoku:
         print("[INFO] solving Sudoku puzzle...")
         self.boardSolution = puzzle.solve()
         self.boardSolution.show_full()
+
+    def generateWarpedSolution(self, debug = False):
+        """
+            Generation of the solution on the warped puzzle image with black background and red forground (without display all of puzzle - only solution).
+        """
+        # Create new image 
+        self.warpedResultRGB  = np.zeros((self.warpedPuzzleGray.shape[0], self.warpedPuzzleGray.shape[1], 3), np.uint8)
+        self.warpedResultMask = np.zeros((self.warpedPuzzleGray.shape[0], self.warpedPuzzleGray.shape[1], 1), np.uint8)
+        # Loop over the cell locations and board
+        for (cellRow, boardRowSol, boardRowInitial) in zip(self.cellLocs, self.boardSolution.board, self.board):
+            # Loop over individual cell in the row
+            for (cellBox, digitSol, digitInitial) in zip(cellRow, boardRowSol, boardRowInitial):
+                if digitInitial == 0:
+                    # Unpack the cell coordinates
+                    startX, startY, endX, endY = cellBox
+                    # Compute the coordinates of where the digit will be drawn on the output puzzle image
+                    textX = int((endX - startX) * 0.33)
+                    textY = int((endY - startY) * -0.2)
+                    textX += startX
+                    textY += endY
+                    # Draw the result digit on the Sudoku puzzle image
+                    cv2.putText(self.warpedResultRGB , str(digitSol), (textX, textY), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                    cv2.putText(self.warpedResultMask, str(digitSol), (textX, textY), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255), 2)
+        if debug:
+            # Show the output image
+            cv2.imshow("mySudoku Warped solution", self.warpedResultRGB)
+            cv2.waitKey(0)
+
+    def generateSolution(self):
+        """
+            Generation of the solution on the original puzzle image with filling only empty cells 
+        """
+        height = self.warpedPuzzleGray.shape[0]
+        width  = self.warpedPuzzleGray.shape[1]
+
+        # Define the 4 points representing the corners of our Sudoku puzzle
+        srcPoints = np.array([
+                    [0, 0],
+                    [width - 1, 0],
+                    [width - 1, height - 1],
+                    [0, height - 1]], dtype="float32")
+        srcPoints = order_points(srcPoints.reshape(4, 2))
+
+        # Define the equivalent 4 points representing the corners of our Sudoku puzzle in the original image
+        self.puzzleCnt = order_points(self.puzzleCnt.reshape(4, 2))
+
+
+        # Compute the perspective transform matrix and then apply it
+        M = cv2.getPerspectiveTransform(srcPoints, self.puzzleCnt)
+
+        height = self.originalImage.shape[0]
+        width  = self.originalImage.shape[1]
+
+        result = cv2.warpPerspective(self.warpedResultRGB,  M, (width, height))
+        mask   = cv2.warpPerspective(self.warpedResultMask,  M, (width, height))
+
+        # Combine foreground + background
+        forground = cv2.bitwise_or(result, result, mask = mask)
+
+        mask = cv2.bitwise_not(mask)
+        background = cv2.bitwise_or(self.originalImage, self.originalImage, mask=mask)
+
+        # Show Solution in original Image
+        self.resultImage = cv2.bitwise_or(forground, background)
+        cv2.imshow("mySudoku", self.resultImage)
+        cv2.waitKey()
